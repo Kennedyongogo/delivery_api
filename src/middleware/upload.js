@@ -28,9 +28,10 @@ const storage = multer.diskStorage({
       uploadPath = path.join(__dirname, "..", "..", "uploads", "projects");
     } else if (
       file.fieldname === "image" ||
-      file.fieldname === "images"
+      file.fieldname === "images" ||
+      file.fieldname === "menu_image"
     ) {
-      uploadPath = path.join(__dirname, "..", "..", "uploads", "misc");
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "menu");
     } else if (
       file.fieldname === "blog_image" ||
       file.fieldname === "blog_featured_image"
@@ -101,6 +102,8 @@ const fileFilter = (req, file, cb) => {
     "image/png": ".png",
     "image/gif": ".gif",
     "image/webp": ".webp",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
     // Videos
     "video/mp4": ".mp4",
     "video/avi": ".avi",
@@ -123,9 +126,27 @@ const fileFilter = (req, file, cb) => {
     "text/csv": ".csv",
   };
 
+  const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"];
+  const originalName = (file.originalname || "").toLowerCase();
+  const hasAllowedImageExtension = imageExtensions.some((ext) =>
+    originalName.endsWith(ext)
+  );
+  const isMenuImageField =
+    file.fieldname === "image" || file.fieldname === "menu_image";
+
+  // Some phones/providers send image uploads as application/octet-stream.
+  // Accept by extension for known image fields.
+  if (isMenuImageField && file.mimetype === "application/octet-stream" && hasAllowedImageExtension) {
+    cb(null, true);
+    return;
+  }
+
   if (allowedTypes[file.mimetype]) {
     cb(null, true);
   } else {
+    console.warn(
+      `[upload] Rejected file. field=${file.fieldname} mimetype=${file.mimetype} originalname=${file.originalname}`
+    );
     cb(
       new Error(
         `Invalid file type: ${file.mimetype}. Allowed types: ${Object.values(
@@ -201,6 +222,9 @@ const uploadPartnerLogo = upload.single("partner_logo");
 // Middleware for marketplace listing image
 const uploadListingImage = upload.single("listing_image");
 
+// Middleware for menu item image
+const uploadMenuImage = upload.single("image");
+
 // Error handling middleware for multer
 const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
@@ -227,7 +251,8 @@ const handleUploadError = (error, req, res, next) => {
   if (error && error.message.includes("Invalid file type")) {
     return res.status(400).json({
       success: false,
-      message: error.message,
+      message:
+        "Invalid file type. Allowed image formats: JPG, JPEG, PNG, GIF, WEBP, HEIC, HEIF.",
     });
   }
 
@@ -295,6 +320,7 @@ module.exports = {
   uploadGrantImage,
   uploadPartnerLogo,
   uploadListingImage,
+  uploadMenuImage,
   handleUploadError,
   deleteFile,
   getFileType,

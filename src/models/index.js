@@ -2,8 +2,9 @@ const { sequelize } = require("../config/database");
 
 const User = require("./adminUser")(sequelize);
 const AuditLog = require("./auditTrail")(sequelize);
+const MenuItem = require("./menuItem")(sequelize);
 
-const models = { User, AuditLog };
+const models = { User, AuditLog, MenuItem };
 
 // Initialize models in correct order (parent tables first)
 const initializeModels = async () => {
@@ -15,6 +16,7 @@ const initializeModels = async () => {
 
     await User.sync({ force: false, alter: false });
     await AuditLog.sync({ force: false, alter: false });
+    await MenuItem.sync({ force: false, alter: false });
 
     console.log("✅ All models synced successfully");
   } catch (error) {
@@ -39,6 +41,14 @@ const setupAssociations = () => {
     });
     models.User.hasMany(models.AuditLog, { foreignKey: "user_id" });
     models.AuditLog.belongsTo(models.User, { foreignKey: "user_id" });
+    models.User.hasMany(models.MenuItem, {
+      foreignKey: "created_by",
+      as: "createdMenuItems",
+    });
+    models.MenuItem.belongsTo(models.User, {
+      foreignKey: "created_by",
+      as: "creator",
+    });
 
     console.log("✅ All associations set up successfully");
   } catch (error) {

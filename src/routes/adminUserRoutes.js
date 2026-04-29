@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const {
+  setupOwner,
+  ownerExists,
   register,
   createStaff,
   login,
@@ -25,6 +27,8 @@ const { errorHandler } = require("../middleware/errorHandler");
 
 // Public routes
 router.post("/login", login);
+router.get("/owner-exists", ownerExists);
+router.post("/setup-owner", uploadProfileImage, handleUploadError, setupOwner);
 router.post("/register", uploadProfileImage, handleUploadError, register);
 
 // Owner creates staff

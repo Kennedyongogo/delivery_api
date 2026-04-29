@@ -10,6 +10,7 @@ const { User } = require("./models");
 const { errorHandler } = require("./middleware/errorHandler");
 
 const adminUserRoutes = require("./routes/adminUserRoutes");
+const menuRoutes = require("./routes/menuRoutes");
 
 const app = express();
 
@@ -26,6 +27,7 @@ const interestGalleryUploadPath = path.join(__dirname, "..", "uploads", "interes
 const miscUploadPath = path.join(__dirname, "..", "uploads", "misc");
 const postsUploadPath = path.join(__dirname, "..", "uploads", "posts");
 const servicesUploadPath = path.join(__dirname, "..", "uploads", "services");
+const menuUploadPath = path.join(__dirname, "..", "uploads", "menu");
 const projectsUploadPath = path.join(__dirname, "..", "uploads", "projects");
 const marketplaceProfilesUploadPath = path.join(__dirname, "..", "uploads", "marketplace-profiles");
 const trainingEventsUploadPath = path.join(__dirname, "..", "uploads", "training-events");
@@ -85,6 +87,7 @@ app.use("/uploads/interest-gallery", express.static(interestGalleryUploadPath));
 app.use("/uploads/misc", express.static(miscUploadPath));
 app.use("/uploads/posts", express.static(postsUploadPath));
 app.use("/uploads/services", express.static(servicesUploadPath));
+app.use("/uploads/menu", express.static(menuUploadPath));
 app.use("/uploads/projects", express.static(projectsUploadPath));
 app.use("/uploads/marketplace-profiles", express.static(marketplaceProfilesUploadPath));
 app.use("/uploads/training-events", express.static(trainingEventsUploadPath));
@@ -97,6 +100,8 @@ console.log("🔗 Registering API routes...");
 
 app.use("/api/users", adminUserRoutes);
 console.log("✅ /api/users route registered");
+app.use("/api/menu", menuRoutes);
+console.log("✅ /api/menu route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {
@@ -213,6 +218,7 @@ const createUploadDirectories = () => {
     path.join(__dirname, "..", "uploads", "documents"),
     path.join(__dirname, "..", "uploads", "interest-gallery"),
     path.join(__dirname, "..", "uploads", "misc"),
+    path.join(__dirname, "..", "uploads", "menu"),
     path.join(__dirname, "..", "uploads", "marketplace-profiles"),
     path.join(__dirname, "..", "uploads", "training-events"),
     path.join(__dirname, "..", "uploads", "grants"),

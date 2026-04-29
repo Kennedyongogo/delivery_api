@@ -27,8 +27,13 @@ module.exports = (sequelize) => {
           "assign_rider",
           "update_menu",
           "delete_menu",
+          "create_menu_item",
+          "update_menu_item",
+          "delete_menu_item",
+          "toggle_menu_availability",
           "create_staff",
-          "delete_staff"
+          "delete_staff",
+          "owner_setup"
         ),
         allowNull: false,
       },

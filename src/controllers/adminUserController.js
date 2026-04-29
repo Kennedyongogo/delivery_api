@@ -19,6 +19,57 @@ const signToken = (user) =>
     { expiresIn: "7d" }
   );
 
+const setupOwner = async (req, res) => {
+  try {
+    const existingOwner = await User.findOne({ where: { role: "owner" } });
+    if (existingOwner) {
+      return res.status(400).json({
+        success: false,
+        message: "Owner already exists. Please login instead.",
+      });
+    }
+
+    const { full_name, email, password, phone } = req.body;
+    if (!full_name || !email || !password || !phone) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
+    }
+
+    const existing = await User.findOne({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "Email already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const owner = await User.create({
+      full_name,
+      email,
+      password: hashedPassword,
+      phone,
+      role: "owner",
+      is_active: true,
+      profile_image: req.file ? convertToRelativePath(req.file.path) : null,
+    });
+
+    await AuditLog.create({
+      user_id: owner.id,
+      action: "owner_setup",
+      details: { message: "First owner account created" },
+      ip_address: req.ip,
+    });
+
+    const token = signToken(owner);
+    return res.status(201).json({
+      success: true,
+      data: { user: sanitizeUser(owner), token },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const register = async (req, res) => {
   try {
     const { full_name, email, password, phone, role } = req.body;
@@ -259,7 +310,21 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+const ownerExists = async (req, res) => {
+  try {
+    const count = await User.count({ where: { role: "owner" } });
+    return res.status(200).json({
+      success: true,
+      data: { exists: count > 0, count },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
+  setupOwner,
+  ownerExists,
   register,
   createStaff,
   login,
