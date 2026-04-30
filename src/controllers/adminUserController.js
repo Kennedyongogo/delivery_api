@@ -104,7 +104,8 @@ const createStaff = async (req, res) => {
     if (req.user.role !== "owner") {
       return res.status(403).json({ success: false, message: "Only owner can create staff" });
     }
-    const { full_name, email, password, phone } = req.body;
+    const { full_name, email, password, phone, role } = req.body;
+    const selectedRole = role === "rider" ? "rider" : "staff";
     const existing = await User.findOne({ where: { email } });
     if (existing) {
       return res.status(400).json({ success: false, message: "Email already exists" });
@@ -115,13 +116,13 @@ const createStaff = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role: "staff",
+      role: selectedRole,
       created_by: req.user.id,
     });
     await AuditLog.create({
       user_id: req.user.id,
       action: "create_staff",
-      details: { staff_id: staff.id, email: staff.email },
+      details: { user_id: staff.id, role: selectedRole, email: staff.email },
       ip_address: req.ip,
     });
     return res.status(201).json({ success: true, data: sanitizeUser(staff) });

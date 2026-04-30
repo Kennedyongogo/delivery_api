@@ -133,10 +133,15 @@ const fileFilter = (req, file, cb) => {
   );
   const isMenuImageField =
     file.fieldname === "image" || file.fieldname === "menu_image";
+  const isProfileImageField = file.fieldname === "profile_image";
 
   // Some phones/providers send image uploads as application/octet-stream.
   // Accept by extension for known image fields.
-  if (isMenuImageField && file.mimetype === "application/octet-stream" && hasAllowedImageExtension) {
+  if (
+    (isMenuImageField || isProfileImageField) &&
+    file.mimetype === "application/octet-stream" &&
+    hasAllowedImageExtension
+  ) {
     cb(null, true);
     return;
   }
