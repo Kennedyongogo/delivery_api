@@ -90,6 +90,12 @@ const createNotificationsForStatusChange = async ({
   }
 };
 
+const toNullableNumber = (value) => {
+  if (value === null || value === undefined || value == "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
 const getOrders = async (req, res) => {
   try {
     const { status, limit = 50, page = 1 } = req.query;
@@ -325,10 +331,13 @@ const updateOrderStatus = async (req, res) => {
           message: "Only rider can update to this status",
         });
       }
-      if (status === "picked_up" && !order.rider_id) {
-        order.rider_id = req.user.id;
+      if (!order.rider_id) {
+        return res.status(403).json({
+          success: false,
+          message: "Order must be assigned by owner before rider actions",
+        });
       }
-      if (order.rider_id && order.rider_id !== req.user.id) {
+      if (order.rider_id !== req.user.id) {
         return res.status(403).json({
           success: false,
           message: "Only assigned rider can update this order",
@@ -364,7 +373,7 @@ const updateOrderStatus = async (req, res) => {
         actual_delivery_time: new Date(),
       });
     } else {
-      await order.update({ status, rider_id: order.rider_id });
+      await order.update({ status });
     }
 
     await AuditLog.create({
@@ -484,6 +493,105 @@ const getAvailableOrders = async (req, res) => {
   }
 };
 
+const updateRiderLocation = async (req, res) => {
+  try {
+    const { latitude, longitude } = req.body;
+    const lat = toNullableNumber(latitude);
+    const lng = toNullableNumber(longitude);
+
+    if (lat === null || lng === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid latitude and longitude are required",
+      });
+    }
+
+    const order = await Order.findByPk(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (req.user.role !== "rider") {
+      return res.status(403).json({
+        success: false,
+        message: "Only rider can update location",
+      });
+    }
+
+    if (!order.rider_id || order.rider_id !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Only assigned rider can update this order location",
+      });
+    }
+
+    await order.update({
+      rider_current_latitude: lat,
+      rider_current_longitude: lng,
+      rider_location_updated_at: new Date(),
+    });
+
+    await User.update(
+      {
+        current_latitude: lat,
+        current_longitude: lng,
+      },
+      { where: { id: req.user.id } }
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        order_id: order.id,
+        rider_id: order.rider_id,
+        rider_current_latitude: order.rider_current_latitude,
+        rider_current_longitude: order.rider_current_longitude,
+        rider_location_updated_at: order.rider_location_updated_at,
+      },
+      message: "Rider location updated",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+const getOrderLiveLocation = async (req, res) => {
+  try {
+    const order = await Order.findByPk(req.params.id, {
+      include: [
+        { model: User, as: "customer", attributes: ["id"] },
+        { model: User, as: "rider", attributes: ["id", "full_name", "phone"] },
+      ],
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (req.user.role === "customer" && order.customer_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+    if (req.user.role === "rider" && order.rider_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Forbidden" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        order_id: order.id,
+        rider_id: order.rider_id,
+        delivery_latitude: order.delivery_latitude,
+        delivery_longitude: order.delivery_longitude,
+        rider_current_latitude: order.rider_current_latitude,
+        rider_current_longitude: order.rider_current_longitude,
+        rider_location_updated_at: order.rider_location_updated_at,
+        rider: order.rider,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   getOrders,
   getOrderById,
@@ -492,4 +600,6 @@ module.exports = {
   getOrderTimeline,
   assignRider,
   getAvailableOrders,
+  updateRiderLocation,
+  getOrderLiveLocation,
 };

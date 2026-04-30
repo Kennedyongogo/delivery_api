@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 const config = require("../config/config");
 const { Op } = require("sequelize");
 const { convertToRelativePath } = require("../utils/filePath");
-const allowedPublicRoles = ["customer", "rider"];
+const allowedPublicRoles = ["customer"];
 
 const sanitizeUser = (user) => {
   const plain = user.get ? user.get({ plain: true }) : user;
@@ -77,7 +77,7 @@ const register = async (req, res) => {
     if (!allowedPublicRoles.includes(requestedRole)) {
       return res.status(400).json({
         success: false,
-        message: "Public registration allows only customer or rider",
+        message: "Public registration allows only customer",
       });
     }
     const existing = await User.findOne({ where: { email } });

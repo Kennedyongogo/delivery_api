@@ -77,6 +77,18 @@ module.exports = (sequelize) => {
         type: DataTypes.DECIMAL(11, 8),
         allowNull: true,
       },
+      rider_current_latitude: {
+        type: DataTypes.DECIMAL(10, 8),
+        allowNull: true,
+      },
+      rider_current_longitude: {
+        type: DataTypes.DECIMAL(11, 8),
+        allowNull: true,
+      },
+      rider_location_updated_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
       payment_method: {
         type: DataTypes.ENUM("cash", "card", "mpesa"),
         defaultValue: "cash",
