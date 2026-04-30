@@ -11,6 +11,9 @@ const { errorHandler } = require("./middleware/errorHandler");
 
 const adminUserRoutes = require("./routes/adminUserRoutes");
 const menuRoutes = require("./routes/menuRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const addressRoutes = require("./routes/addressRoutes");
 
 const app = express();
 
@@ -102,6 +105,12 @@ app.use("/api/users", adminUserRoutes);
 console.log("✅ /api/users route registered");
 app.use("/api/menu", menuRoutes);
 console.log("✅ /api/menu route registered");
+app.use("/api/orders", orderRoutes);
+console.log("✅ /api/orders route registered");
+app.use("/api/notifications", notificationRoutes);
+console.log("✅ /api/notifications route registered");
+app.use("/api/addresses", addressRoutes);
+console.log("✅ /api/addresses route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {
