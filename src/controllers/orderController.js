@@ -7,6 +7,7 @@ const {
   OrderStatusEvent,
   Notification,
 } = require("../models");
+const { ROLES, RIDER_ROLES, ADMIN_ROLES, isRider } = require("../utils/roles");
 
 const createNotificationsForStatusChange = async ({
   order,
@@ -43,7 +44,7 @@ const createNotificationsForStatusChange = async ({
       type: "order_update",
     });
     const riders = await User.findAll({
-      where: { role: "rider", is_active: true },
+      where: { role: RIDER_ROLES, is_active: true },
       attributes: ["id"],
     });
     for (const rider of riders) {
@@ -105,8 +106,8 @@ const getOrders = async (req, res) => {
 
     const whereClause = {};
     if (status) whereClause.status = status;
-    if (req.user.role === "customer") whereClause.customer_id = req.user.id;
-    if (req.user.role === "rider") whereClause.rider_id = req.user.id;
+    if (req.user.role === ROLES.CUSTOMER) whereClause.customer_id = req.user.id;
+    if (isRider(req.user.role)) whereClause.rider_id = req.user.id;
 
     const { count, rows } = await Order.findAndCountAll({
       where: whereClause,
@@ -160,10 +161,10 @@ const getOrderById = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
-    if (req.user.role === "customer" && order.customer_id !== req.user.id) {
+    if (req.user.role === ROLES.CUSTOMER && order.customer_id !== req.user.id) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
-    if (req.user.role === "rider" && order.rider_id !== req.user.id) {
+    if (isRider(req.user.role) && order.rider_id !== req.user.id) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
 
@@ -316,16 +317,16 @@ const updateOrderStatus = async (req, res) => {
     }
 
     if (["confirmed", "preparing", "ready_for_pickup"].includes(status)) {
-      if (!["owner", "staff"].includes(req.user.role)) {
+      if (!ADMIN_ROLES.includes(req.user.role)) {
         return res.status(403).json({
           success: false,
-          message: "Only owner/staff can update to this status",
+          message: "Only shop owner/staff can update to this status",
         });
       }
     }
 
     if (["picked_up", "delivered"].includes(status)) {
-      if (req.user.role !== "rider") {
+      if (!isRider(req.user.role)) {
         return res.status(403).json({
           success: false,
           message: "Only rider can update to this status",
@@ -334,7 +335,7 @@ const updateOrderStatus = async (req, res) => {
       if (!order.rider_id) {
         return res.status(403).json({
           success: false,
-          message: "Order must be assigned by owner before rider actions",
+          message: "Order must be assigned by shop owner before rider actions",
         });
       }
       if (order.rider_id !== req.user.id) {
@@ -345,7 +346,7 @@ const updateOrderStatus = async (req, res) => {
       }
     }
 
-    if (status === "cancelled" && req.user.role === "customer") {
+    if (status === "cancelled" && req.user.role === ROLES.CUSTOMER) {
       if (order.customer_id !== req.user.id) {
         return res.status(403).json({
           success: false,
@@ -415,10 +416,10 @@ const getOrderTimeline = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
-    if (req.user.role === "customer" && order.customer_id !== req.user.id) {
+    if (req.user.role === ROLES.CUSTOMER && order.customer_id !== req.user.id) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
-    if (req.user.role === "rider" && order.rider_id !== req.user.id) {
+    if (isRider(req.user.role) && order.rider_id !== req.user.id) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
     const events = await OrderStatusEvent.findAll({
@@ -447,7 +448,7 @@ const assignRider = async (req, res) => {
     }
 
     const rider = await User.findByPk(rider_id);
-    if (!rider || rider.role !== "rider") {
+    if (!rider || !isRider(rider.role)) {
       return res.status(400).json({ success: false, message: "Invalid rider" });
     }
 
@@ -511,7 +512,7 @@ const updateRiderLocation = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    if (req.user.role !== "rider") {
+    if (!isRider(req.user.role)) {
       return res.status(403).json({
         success: false,
         message: "Only rider can update location",
@@ -530,14 +531,6 @@ const updateRiderLocation = async (req, res) => {
       rider_current_longitude: lng,
       rider_location_updated_at: new Date(),
     });
-
-    await User.update(
-      {
-        current_latitude: lat,
-        current_longitude: lng,
-      },
-      { where: { id: req.user.id } }
-    );
 
     return res.status(200).json({
       success: true,
@@ -567,10 +560,10 @@ const getOrderLiveLocation = async (req, res) => {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    if (req.user.role === "customer" && order.customer_id !== req.user.id) {
+    if (req.user.role === ROLES.CUSTOMER && order.customer_id !== req.user.id) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
-    if (req.user.role === "rider" && order.rider_id !== req.user.id) {
+    if (isRider(req.user.role) && order.rider_id !== req.user.id) {
       return res.status(403).json({ success: false, message: "Forbidden" });
     }
 

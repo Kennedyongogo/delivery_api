@@ -33,7 +33,9 @@ module.exports = (sequelize) => {
           "toggle_menu_availability",
           "create_staff",
           "delete_staff",
-          "owner_setup"
+          "owner_setup",
+          "create_shop_owner",
+          "create_shop_rider"
         ),
         allowNull: false,
       },

@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
 const config = require("../config/config");
+const { ROLES, ADMIN_ROLES } = require("../utils/roles");
 
 exports.authenticateUser = async (req, res, next) => {
   const authHeader = req.header("Authorization");
@@ -91,7 +92,7 @@ exports.authorizeRoles = (roles = []) => {
 };
 
 exports.requireSuperAdmin = (req, res, next) => {
-  if (req.userType !== "user" || req.user.role !== "owner") {
+  if (req.userType !== "user" || req.user.role !== ROLES.SUPER_ADMIN) {
     return res.status(403).json({
       success: false,
       message: "Access denied",
@@ -101,7 +102,7 @@ exports.requireSuperAdmin = (req, res, next) => {
 };
 
 exports.requireAdmin = (req, res, next) => {
-  if (req.userType !== "user" || !["owner", "staff"].includes(req.user.role)) {
+  if (req.userType !== "user" || !ADMIN_ROLES.includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: "Access denied",
@@ -111,7 +112,7 @@ exports.requireAdmin = (req, res, next) => {
 };
 
 exports.requireAdminOrHigher = (req, res, next) => {
-  if (req.userType !== "user" || !["owner", "staff"].includes(req.user.role)) {
+  if (req.userType !== "user" || !ADMIN_ROLES.includes(req.user.role)) {
     return res.status(403).json({
       success: false,
       message: "Access denied",
@@ -123,7 +124,7 @@ exports.requireAdminOrHigher = (req, res, next) => {
 
 exports.verifyAdminOwnership = (userIdParam = "id") => {
   return (req, res, next) => {
-    if (req.user?.role === "owner") {
+    if (req.user?.role === ROLES.SHOP_OWNER) {
       return next();
     }
 

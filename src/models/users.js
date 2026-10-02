@@ -1,4 +1,5 @@
 const { DataTypes } = require("sequelize");
+const { ROLES, ALL_ROLES } = require("../utils/roles");
 
 module.exports = (sequelize) => {
   const User = sequelize.define(
@@ -30,10 +31,11 @@ module.exports = (sequelize) => {
         allowNull: false,
       },
       role: {
-        type: DataTypes.ENUM("customer", "rider", "owner", "staff"),
-        defaultValue: "customer",
+        type: DataTypes.ENUM(...ALL_ROLES),
+        defaultValue: ROLES.CUSTOMER,
         allowNull: false,
       },
+      // For staff and shop riders, the shop owner whose shop they work for.
       created_by: {
         type: DataTypes.UUID,
         allowNull: true,
@@ -41,26 +43,6 @@ module.exports = (sequelize) => {
           model: "users",
           key: "id",
         },
-      },
-      is_available: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: true,
-      },
-      current_latitude: {
-        type: DataTypes.DECIMAL(10, 8),
-        allowNull: true,
-      },
-      current_longitude: {
-        type: DataTypes.DECIMAL(11, 8),
-        allowNull: true,
-      },
-      total_deliveries: {
-        type: DataTypes.INTEGER,
-        defaultValue: 0,
-      },
-      rating: {
-        type: DataTypes.DECIMAL(3, 2),
-        defaultValue: 5.0,
       },
       profile_image: {
         type: DataTypes.STRING,

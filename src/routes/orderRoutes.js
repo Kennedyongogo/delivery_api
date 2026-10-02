@@ -12,17 +12,18 @@ const {
   updateRiderLocation,
   getOrderLiveLocation,
 } = require("../controllers/orderController");
+const { ROLES, RIDER_ROLES } = require("../utils/roles");
 
 router.use(authenticateUser);
 
-router.post("/", authorizeRoles(["customer"]), createOrder);
+router.post("/", authorizeRoles([ROLES.CUSTOMER]), createOrder);
 router.get("/", getOrders);
-router.get("/available", authorizeRoles(["rider"]), getAvailableOrders);
+router.get("/available", authorizeRoles(RIDER_ROLES), getAvailableOrders);
 router.get("/:id/live-location", getOrderLiveLocation);
 router.get("/:id/timeline", getOrderTimeline);
 router.get("/:id", getOrderById);
 router.put("/:id/status", updateOrderStatus);
-router.put("/:id/assign-rider", authorizeRoles(["owner"]), assignRider);
-router.put("/:id/rider-location", authorizeRoles(["rider"]), updateRiderLocation);
+router.put("/:id/assign-rider", authorizeRoles([ROLES.SHOP_OWNER]), assignRider);
+router.put("/:id/rider-location", authorizeRoles(RIDER_ROLES), updateRiderLocation);
 
 module.exports = router;

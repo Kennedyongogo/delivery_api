@@ -1,6 +1,7 @@
+const { DataTypes } = require("sequelize");
 const { sequelize } = require("../config/database");
 
-const User = require("./adminUser")(sequelize);
+const User = require("./users")(sequelize);
 const AuditLog = require("./auditTrail")(sequelize);
 const MenuItem = require("./menuItem")(sequelize);
 const Order = require("./order")(sequelize);
@@ -20,6 +21,22 @@ const models = {
   UserAddress,
 };
 
+// sync({ alter: false }) never changes an existing Postgres enum type, so values added to a
+// model's ENUM later would be rejected by the database until they are added here.
+const syncEnumValues = async (model) => {
+  for (const [name, attribute] of Object.entries(model.rawAttributes)) {
+    if (!(attribute.type instanceof DataTypes.ENUM)) continue;
+    const typeName = `enum_${model.getTableName()}_${attribute.field || name}`;
+    const [rows] = await sequelize.query(`SELECT unnest(enum_range(NULL::"${typeName}"))::text AS value`);
+    const existing = new Set(rows.map((row) => row.value));
+    for (const value of attribute.type.values) {
+      if (existing.has(value)) continue;
+      await sequelize.query(`ALTER TYPE "${typeName}" ADD VALUE IF NOT EXISTS '${value.replace(/'/g, "''")}'`);
+      console.log(`➕ Added "${value}" to ${typeName}`);
+    }
+  }
+};
+
 // Initialize models in correct order (parent tables first)
 const initializeModels = async () => {
   try {
@@ -37,6 +54,10 @@ const initializeModels = async () => {
     await Notification.sync({ force: false, alter: false });
     await UserAddress.sync({ force: false, alter: false });
 
+    for (const model of Object.values(models)) {
+      await syncEnumValues(model);
+    }
+
     console.log("✅ All models synced successfully");
   } catch (error) {
     console.error("❌ Error syncing models:", error);
@@ -53,11 +74,6 @@ const initializeModels = async () => {
 
 const setupAssociations = () => {
   try {
-    models.User.hasMany(models.User, { as: "Staff", foreignKey: "created_by" });
-    models.User.belongsTo(models.User, {
-      as: "Owner",
-      foreignKey: "created_by",
-    });
     models.User.hasMany(models.AuditLog, { foreignKey: "user_id" });
     models.AuditLog.belongsTo(models.User, { foreignKey: "user_id" });
     models.User.hasMany(models.MenuItem, {

@@ -5,6 +5,7 @@ const {
   ownerExists,
   register,
   createStaff,
+  createShopOwner,
   login,
   getAllUsers,
   getUserById,
@@ -24,6 +25,7 @@ const {
   handleUploadError,
 } = require("../middleware/upload");
 const { errorHandler } = require("../middleware/errorHandler");
+const { ROLES, ADMIN_ROLES } = require("../utils/roles");
 
 // Public routes
 router.post("/login", login);
@@ -31,16 +33,20 @@ router.get("/owner-exists", ownerExists);
 router.post("/setup-owner", uploadProfileImage, handleUploadError, setupOwner);
 router.post("/register", uploadProfileImage, handleUploadError, register);
 
-// Owner creates staff
+// Shop owner creates staff and riders
 router.post(
   "/staff",
   authenticateUser,
-  authorizeRoles(["owner"]),
+  authorizeRoles([ROLES.SHOP_OWNER]),
   createStaff
 );
 
-router.get("/dashboard/stats", authenticateUser, authorizeRoles(["owner", "staff"]), getDashboardStats);
-router.get("/", authenticateUser, authorizeRoles(["owner", "staff"]), getAllUsers);
+router.post("/shop-owners", authenticateUser, authorizeRoles([ROLES.SUPER_ADMIN]), createShopOwner);
+
+const USER_DIRECTORY_ROLES = [...ADMIN_ROLES, ROLES.SUPER_ADMIN];
+
+router.get("/dashboard/stats", authenticateUser, authorizeRoles(USER_DIRECTORY_ROLES), getDashboardStats);
+router.get("/", authenticateUser, authorizeRoles(USER_DIRECTORY_ROLES), getAllUsers);
 router.get("/:id", authenticateUser, getUserById);
 
 router.put(
@@ -52,8 +58,8 @@ router.put(
 );
 
 router.put("/:id/password", authenticateUser, changePassword);
-router.put("/:id/role", authenticateUser, authorizeRoles(["owner"]), updateRole);
-router.put("/:id/toggle-status", authenticateUser, authorizeRoles(["owner"]), toggleActiveStatus);
+router.put("/:id/role", authenticateUser, authorizeRoles([ROLES.SHOP_OWNER]), updateRole);
+router.put("/:id/toggle-status", authenticateUser, authorizeRoles([ROLES.SHOP_OWNER]), toggleActiveStatus);
 
 router.delete("/:id", authenticateUser, deleteUser);
 

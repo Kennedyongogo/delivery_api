@@ -7,9 +7,10 @@ const {
   updateAddress,
   deleteAddress,
 } = require("../controllers/addressController");
+const { ROLES } = require("../utils/roles");
 
 router.use(authenticateUser);
-router.use(authorizeRoles(["customer"]));
+router.use(authorizeRoles([ROLES.CUSTOMER]));
 
 router.get("/", getMyAddresses);
 router.post("/", createAddress);
