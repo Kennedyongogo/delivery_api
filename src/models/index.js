@@ -9,6 +9,8 @@ const OrderItem = require("./orderItem")(sequelize);
 const OrderStatusEvent = require("./orderStatusEvent")(sequelize);
 const Notification = require("./notification")(sequelize);
 const UserAddress = require("./userAddress")(sequelize);
+const Shop = require("./shop")(sequelize);
+const ShopProduct = require("./shopProduct")(sequelize);
 
 const models = {
   User,
@@ -19,6 +21,8 @@ const models = {
   OrderStatusEvent,
   Notification,
   UserAddress,
+  Shop,
+  ShopProduct,
 };
 
 // sync({ alter: false }) never changes an existing Postgres enum type, so values added to a
@@ -37,6 +41,48 @@ const syncEnumValues = async (model) => {
   }
 };
 
+// shops.opening_hours started out as free text; it is now a JSONB list of structured entries.
+// Old free-text values can't be parsed reliably, so they are reset and owners re-enter them.
+const migrateOpeningHours = async () => {
+  const [[column]] = await sequelize.query(
+    "SELECT data_type FROM information_schema.columns WHERE table_name = 'shops' AND column_name = 'opening_hours'"
+  );
+  if (!column || column.data_type === "jsonb") return;
+  await sequelize.query(`
+    ALTER TABLE shops ALTER COLUMN opening_hours DROP DEFAULT;
+    ALTER TABLE shops ALTER COLUMN opening_hours TYPE JSONB USING '[]'::jsonb;
+    ALTER TABLE shops ALTER COLUMN opening_hours SET DEFAULT '[]'::jsonb;
+    ALTER TABLE shops ALTER COLUMN opening_hours SET NOT NULL;
+  `);
+  console.log("🔁 Converted shops.opening_hours to JSONB");
+};
+
+// Staff and shop riders belong to their owner's shop through users.shop_id. Older databases lack the
+// column; members created before it existed are linked to the shop their creator owns.
+const migrateUserShop = async () => {
+  await sequelize.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS shop_id UUID;
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'users_shop_id_fkey') THEN
+        ALTER TABLE users ADD CONSTRAINT users_shop_id_fkey FOREIGN KEY (shop_id) REFERENCES shops(id) ON DELETE SET NULL;
+      END IF;
+    END $$;
+    CREATE INDEX IF NOT EXISTS users_shop_id ON users (shop_id);
+    UPDATE users u SET shop_id = s.id
+      FROM shops s
+      WHERE u.shop_id IS NULL AND u.created_by = s.owner_id AND u.role IN ('staff', 'shop_rider');
+  `);
+};
+
+// Products started with a single image_url; they now keep an ordered images list (image_url mirrors the cover).
+const migrateProductImages = async () => {
+  await sequelize.query(`
+    ALTER TABLE shop_products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb;
+    UPDATE shop_products SET images = jsonb_build_array(image_url)
+      WHERE image_url IS NOT NULL AND images = '[]'::jsonb;
+  `);
+};
+
 // Initialize models in correct order (parent tables first)
 const initializeModels = async () => {
   try {
@@ -53,6 +99,11 @@ const initializeModels = async () => {
     await OrderStatusEvent.sync({ force: false, alter: false });
     await Notification.sync({ force: false, alter: false });
     await UserAddress.sync({ force: false, alter: false });
+    await Shop.sync({ force: false, alter: false });
+    await migrateOpeningHours();
+    await migrateUserShop();
+    await ShopProduct.sync({ force: false, alter: false });
+    await migrateProductImages();
 
     for (const model of Object.values(models)) {
       await syncEnumValues(model);
@@ -138,6 +189,12 @@ const setupAssociations = () => {
       foreignKey: "user_id",
     });
     models.UserAddress.belongsTo(models.User, { foreignKey: "user_id" });
+    models.User.hasOne(models.Shop, { as: "shop", foreignKey: "owner_id" });
+    models.Shop.belongsTo(models.User, { as: "owner", foreignKey: "owner_id" });
+    models.Shop.hasMany(models.ShopProduct, { as: "products", foreignKey: "shop_id", onDelete: "CASCADE" });
+    models.ShopProduct.belongsTo(models.Shop, { as: "shop", foreignKey: "shop_id" });
+    models.Shop.hasMany(models.User, { as: "members", foreignKey: "shop_id", constraints: false });
+    models.User.belongsTo(models.Shop, { as: "workplace", foreignKey: "shop_id", constraints: false });
 
     console.log("✅ All associations set up successfully");
   } catch (error) {

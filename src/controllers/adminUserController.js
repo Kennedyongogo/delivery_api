@@ -1,10 +1,10 @@
-const { User, AuditLog, sequelize } = require("../models");
+const { User, AuditLog, Shop, sequelize } = require("../models");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const config = require("../config/config");
 const { Op } = require("sequelize");
 const { convertToRelativePath } = require("../utils/filePath");
-const { ROLES, ALL_ROLES, SHOP_MEMBER_ROLES, SHOP_ROLES } = require("../utils/roles");
+const { ROLES, ALL_ROLES, ADMIN_ROLES, SHOP_MEMBER_ROLES, SHOP_ROLES } = require("../utils/roles");
 const allowedPublicRoles = [ROLES.CUSTOMER];
 
 // A shop is identified by its owner: the owner's own id, or `created_by` for its staff and riders.
@@ -144,6 +144,12 @@ const createStaff = async (req, res) => {
       return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
     }
 
+    // Every staff member and shop rider works in the owner's (single) shop.
+    const shop = await Shop.findOne({ where: { owner_id: req.user.id }, attributes: ["id"] });
+    if (!shop) {
+      return res.status(400).json({ success: false, message: "Set up your shop profile before adding staff or riders." });
+    }
+
     const existing = await User.findOne({ where: { email: { [Op.iLike]: email } } });
     if (existing) {
       return res.status(409).json({ success: false, message: "An account with this email already exists" });
@@ -160,6 +166,7 @@ const createStaff = async (req, res) => {
           role,
           is_active: true,
           created_by: req.user.id,
+          shop_id: shop.id,
         },
         { transaction }
       );
@@ -167,7 +174,7 @@ const createStaff = async (req, res) => {
         {
           user_id: req.user.id,
           action: role === ROLES.SHOP_RIDER ? "create_shop_rider" : "create_staff",
-          details: { user_id: created.id, role, email: created.email },
+          details: { user_id: created.id, role, email: created.email, shop_id: shop.id },
           ip_address: req.ip,
         },
         { transaction }
@@ -236,7 +243,7 @@ const createShopOwner = async (req, res) => {
 
 const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, portal } = req.body;
     const user = await User.findOne({ where: { email } });
     if (!user) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
@@ -247,6 +254,9 @@ const login = async (req, res) => {
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       return res.status(401).json({ success: false, message: "Invalid email or password" });
+    }
+    if (portal === "admin" && !ADMIN_ROLES.includes(user.role)) {
+      return res.status(403).json({ success: false, message: "This account doesn't have access to the admin portal." });
     }
     await user.update({ last_login: new Date() });
     const token = signToken(user);

@@ -14,6 +14,7 @@ const menuRoutes = require("./routes/menuRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const addressRoutes = require("./routes/addressRoutes");
+const shopRoutes = require("./routes/shopRoutes");
 
 const app = express();
 
@@ -97,6 +98,8 @@ app.use("/uploads/training-events", express.static(trainingEventsUploadPath));
 app.use("/uploads/grants", express.static(grantsUploadPath));
 app.use("/uploads/partners", express.static(partnersUploadPath));
 app.use("/uploads/marketplace-listings", express.static(marketplaceListingsUploadPath));
+app.use("/uploads/shops", express.static(path.join(__dirname, "..", "uploads", "shops")));
+app.use("/uploads/products", express.static(path.join(__dirname, "..", "uploads", "products")));
 
 // API routes
 console.log("🔗 Registering API routes...");
@@ -111,6 +114,8 @@ app.use("/api/notifications", notificationRoutes);
 console.log("✅ /api/notifications route registered");
 app.use("/api/addresses", addressRoutes);
 console.log("✅ /api/addresses route registered");
+app.use("/api/shops", shopRoutes);
+console.log("✅ /api/shops route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {
@@ -233,6 +238,8 @@ const createUploadDirectories = () => {
     path.join(__dirname, "..", "uploads", "grants"),
     path.join(__dirname, "..", "uploads", "partners"),
     path.join(__dirname, "..", "uploads", "marketplace-listings"),
+    path.join(__dirname, "..", "uploads", "shops"),
+    path.join(__dirname, "..", "uploads", "products"),
   ];
 
   uploadDirs.forEach((dir) => {

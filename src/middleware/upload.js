@@ -1,6 +1,7 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const { MAX_PRODUCT_IMAGES } = require("../utils/shopCategories");
 
 // Configure multer storage
 const storage = multer.diskStorage({
@@ -69,6 +70,10 @@ const storage = multer.diskStorage({
       file.fieldname === "listing_images"
     ) {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "marketplace-listings");
+    } else if (file.fieldname === "shop_logo") {
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "shops");
+    } else if (file.fieldname === "product_images") {
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "products");
     } else {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "misc");
     }
@@ -134,11 +139,17 @@ const fileFilter = (req, file, cb) => {
   const isMenuImageField =
     file.fieldname === "image" || file.fieldname === "menu_image";
   const isProfileImageField = file.fieldname === "profile_image";
+  const isShopImageField = file.fieldname === "shop_logo" || file.fieldname === "product_images";
+
+  if (isShopImageField && !file.mimetype.startsWith("image/") && file.mimetype !== "application/octet-stream") {
+    cb(new Error(`Invalid file type: ${file.mimetype}`), false);
+    return;
+  }
 
   // Some phones/providers send image uploads as application/octet-stream.
   // Accept by extension for known image fields.
   if (
-    (isMenuImageField || isProfileImageField) &&
+    (isMenuImageField || isProfileImageField || isShopImageField) &&
     file.mimetype === "application/octet-stream" &&
     hasAllowedImageExtension
   ) {
@@ -230,6 +241,10 @@ const uploadListingImage = upload.single("listing_image");
 // Middleware for menu item image
 const uploadMenuImage = upload.single("image");
 
+const imageUpload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+const uploadShopLogo = imageUpload.single("shop_logo");
+const uploadProductImages = imageUpload.array("product_images", MAX_PRODUCT_IMAGES);
+
 // Error handling middleware for multer
 const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
@@ -243,6 +258,12 @@ const handleUploadError = (error, req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "Too many files. Maximum is 10 files.",
+      });
+    }
+    if (error.code === "LIMIT_UNEXPECTED_FILE" && error.field === "product_images") {
+      return res.status(400).json({
+        success: false,
+        message: `A product can have at most ${MAX_PRODUCT_IMAGES} photos.`,
       });
     }
     if (error.code === "LIMIT_UNEXPECTED_FILE") {
@@ -326,6 +347,8 @@ module.exports = {
   uploadPartnerLogo,
   uploadListingImage,
   uploadMenuImage,
+  uploadShopLogo,
+  uploadProductImages,
   handleUploadError,
   deleteFile,
   getFileType,

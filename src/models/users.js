@@ -44,6 +44,12 @@ module.exports = (sequelize) => {
           key: "id",
         },
       },
+      // For staff and shop riders, the shop they work in (always their owner's shop).
+      // The foreign key to shops is added in models/index.js because shops is created after users.
+      shop_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+      },
       profile_image: {
         type: DataTypes.STRING,
         allowNull: true,

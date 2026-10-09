@@ -25,7 +25,7 @@ const {
   handleUploadError,
 } = require("../middleware/upload");
 const { errorHandler } = require("../middleware/errorHandler");
-const { ROLES, ADMIN_ROLES } = require("../utils/roles");
+const { ROLES } = require("../utils/roles");
 
 // Public routes
 router.post("/login", login);
@@ -43,7 +43,7 @@ router.post(
 
 router.post("/shop-owners", authenticateUser, authorizeRoles([ROLES.SUPER_ADMIN]), createShopOwner);
 
-const USER_DIRECTORY_ROLES = [...ADMIN_ROLES, ROLES.SUPER_ADMIN];
+const USER_DIRECTORY_ROLES = [ROLES.SHOP_OWNER, ROLES.SUPER_ADMIN];
 
 router.get("/dashboard/stats", authenticateUser, authorizeRoles(USER_DIRECTORY_ROLES), getDashboardStats);
 router.get("/", authenticateUser, authorizeRoles(USER_DIRECTORY_ROLES), getAllUsers);
