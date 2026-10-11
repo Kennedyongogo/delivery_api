@@ -35,7 +35,15 @@ module.exports = (sequelize) => {
           "delete_staff",
           "owner_setup",
           "create_shop_owner",
-          "create_shop_rider"
+          "create_shop_rider",
+          "create_shop",
+          "update_shop",
+          "delete_shop",
+          "create_shop_product",
+          "update_shop_product",
+          "delete_shop_product",
+          "reply_shop_review",
+          "delete_shop_review_reply"
         ),
         allowNull: false,
       },

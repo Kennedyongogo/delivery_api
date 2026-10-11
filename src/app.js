@@ -15,6 +15,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 const shopRoutes = require("./routes/shopRoutes");
+const publicRoutes = require("./routes/publicRoutes");
 
 const app = express();
 
@@ -116,6 +117,8 @@ app.use("/api/addresses", addressRoutes);
 console.log("✅ /api/addresses route registered");
 app.use("/api/shops", shopRoutes);
 console.log("✅ /api/shops route registered");
+app.use("/api/public", publicRoutes);
+console.log("✅ /api/public route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {

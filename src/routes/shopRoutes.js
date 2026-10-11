@@ -14,6 +14,7 @@ const {
   updateProduct,
   deleteProduct,
 } = require("../controllers/shopController");
+const { getMyShopReviews, getShopReviewsById, replyToReview, deleteReply } = require("../controllers/reviewController");
 const { ROLES, ADMIN_ROLES } = require("../utils/roles");
 
 const ownerOnly = authorizeRoles([ROLES.SHOP_OWNER]);
@@ -27,6 +28,9 @@ router.get("/mine", shopTeam, getMyShop);
 router.put("/mine", ownerOnly, uploadShopLogo, handleUploadError, saveMyShop);
 router.delete("/mine", ownerOnly, deleteMyShop);
 
+router.get("/mine/reviews", shopTeam, getMyShopReviews);
+router.put("/mine/reviews/:reviewId/reply", ownerOnly, replyToReview);
+router.delete("/mine/reviews/:reviewId/reply", ownerOnly, deleteReply);
 router.get("/mine/products", shopTeam, listMyProducts);
 router.get("/mine/products/:productId", shopTeam, getMyProduct);
 router.post("/mine/products", ownerOnly, uploadProductImages, handleUploadError, createProduct);
@@ -36,5 +40,6 @@ router.delete("/mine/products/:productId", ownerOnly, deleteProduct);
 // Super admins see every shop's profile, but not their products.
 router.get("/", superAdminOnly, listShops);
 router.get("/:id", superAdminOnly, getShopById);
+router.get("/:id/reviews", superAdminOnly, getShopReviewsById);
 
 module.exports = router;

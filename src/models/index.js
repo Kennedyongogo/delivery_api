@@ -11,6 +11,7 @@ const Notification = require("./notification")(sequelize);
 const UserAddress = require("./userAddress")(sequelize);
 const Shop = require("./shop")(sequelize);
 const ShopProduct = require("./shopProduct")(sequelize);
+const ShopReview = require("./shopReview")(sequelize);
 
 const models = {
   User,
@@ -23,6 +24,7 @@ const models = {
   UserAddress,
   Shop,
   ShopProduct,
+  ShopReview,
 };
 
 // sync({ alter: false }) never changes an existing Postgres enum type, so values added to a
@@ -104,6 +106,12 @@ const initializeModels = async () => {
     await migrateUserShop();
     await ShopProduct.sync({ force: false, alter: false });
     await migrateProductImages();
+    await ShopReview.sync({ force: false, alter: false });
+    await sequelize.query(`
+      ALTER TABLE shops ADD COLUMN IF NOT EXISTS delivery_conditions JSONB NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE shop_reviews ADD COLUMN IF NOT EXISTS owner_reply TEXT;
+      ALTER TABLE shop_reviews ADD COLUMN IF NOT EXISTS owner_reply_at TIMESTAMPTZ;
+    `);
 
     for (const model of Object.values(models)) {
       await syncEnumValues(model);
@@ -195,6 +203,9 @@ const setupAssociations = () => {
     models.ShopProduct.belongsTo(models.Shop, { as: "shop", foreignKey: "shop_id" });
     models.Shop.hasMany(models.User, { as: "members", foreignKey: "shop_id", constraints: false });
     models.User.belongsTo(models.Shop, { as: "workplace", foreignKey: "shop_id", constraints: false });
+    models.Shop.hasMany(models.ShopReview, { as: "reviews", foreignKey: "shop_id", onDelete: "CASCADE" });
+    models.ShopReview.belongsTo(models.Shop, { as: "shop", foreignKey: "shop_id" });
+    models.ShopReview.belongsTo(models.User, { as: "author", foreignKey: "user_id" });
 
     console.log("✅ All associations set up successfully");
   } catch (error) {

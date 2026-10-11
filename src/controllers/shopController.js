@@ -32,6 +32,9 @@ const audit = (req, action, details) =>
 
 class ValidationError extends Error {}
 
+const MAX_DELIVERY_CONDITIONS = 15;
+const MAX_DELIVERY_CONDITION_LENGTH = 200;
+
 // Multipart bodies carry every value as a string, so arrays and objects arrive JSON-encoded.
 const parseJson = (value, fallback) => {
   if (value === undefined) return undefined;
@@ -109,6 +112,19 @@ const readShopBody = (body) => {
   if (services !== undefined) {
     if (!Array.isArray(services)) throw new ValidationError("Services must be a list.");
     values.services = [...new Set(services.map((s) => String(s).trim()).filter(Boolean))].slice(0, 30);
+  }
+
+  const conditions = parseJson(body.delivery_conditions, []);
+  if (conditions !== undefined) {
+    if (!Array.isArray(conditions)) throw new ValidationError("Delivery conditions must be a list.");
+    const cleaned = [...new Set(conditions.map((c) => String(c ?? "").trim()).filter(Boolean))];
+    if (cleaned.length > MAX_DELIVERY_CONDITIONS) {
+      throw new ValidationError(`Add at most ${MAX_DELIVERY_CONDITIONS} delivery conditions.`);
+    }
+    if (cleaned.some((c) => c.length > MAX_DELIVERY_CONDITION_LENGTH)) {
+      throw new ValidationError(`Keep each delivery condition under ${MAX_DELIVERY_CONDITION_LENGTH} characters.`);
+    }
+    values.delivery_conditions = cleaned;
   }
 
   const socials = parseJson(body.social_links, {});

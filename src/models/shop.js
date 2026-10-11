@@ -79,6 +79,12 @@ module.exports = (sequelize) => {
         allowNull: false,
         defaultValue: {},
       },
+      // Ordered list of short rules the owner sets for deliveries, e.g. "Free delivery above KES 1,000".
+      delivery_conditions: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: [],
+      },
       address: {
         type: DataTypes.TEXT,
         allowNull: false,
