@@ -135,6 +135,7 @@ const listPublicShops = async (req, res) => {
       stats: {
         total: await Shop.count({ where: { is_active: true } }),
         ...Object.fromEntries(SHOP_CATEGORIES.map((c, i) => [c, counts[i]])),
+        reviews: await ShopReview.count({ where: { shop_id: { [Op.in]: literal("(SELECT id FROM shops WHERE is_active)") } } }),
       },
       pagination: { total: count, page, limit, totalPages: Math.ceil(count / limit) },
     });

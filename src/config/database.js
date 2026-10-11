@@ -27,20 +27,19 @@ const sequelize = new Sequelize(
     dialect: "postgres",
     logging: false,
     pool: {
-      max: isProduction ? 20 : 5, // More connections for PgBouncer in production
+      max: isProduction ? 20 : 10, // More connections for PgBouncer in production
       min: isProduction ? 2 : 0,
       acquire: 30000,
       idle: 10000,
     },
-    dialectOptions: isProduction
-      ? {
-          // PgBouncer specific settings for production
-          application_name: "construction_management_api",
-          // Connection pooling optimizations
-          keepAlive: true,
-          keepAliveInitialDelayMillis: 10000,
-        }
-      : {},
+    // The database is remote: keep-alive stops idle sockets from being dropped silently, and the
+    // query timeout frees a pool slot if a socket dies mid-query instead of hanging every request.
+    dialectOptions: {
+      ...(isProduction ? { application_name: "construction_management_api" } : {}),
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
+      query_timeout: 20000,
+    },
   }
 );
 
@@ -59,6 +58,10 @@ const directSequelize = new Sequelize(
       min: 0,
       acquire: 30000,
       idle: 10000,
+    },
+    dialectOptions: {
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
     },
   }
 );
