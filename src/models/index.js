@@ -85,6 +85,20 @@ const migrateProductImages = async () => {
   `);
 };
 
+// Orders started out as menu-only; shop orders need the shop and a per-line product snapshot.
+const migrateShopOrders = async () => {
+  await sequelize.query(`
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS shop_id UUID REFERENCES shops(id) ON DELETE SET NULL;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_place VARCHAR(200);
+    CREATE INDEX IF NOT EXISTS orders_shop_id ON orders (shop_id);
+    ALTER TABLE order_items ALTER COLUMN menu_item_id DROP NOT NULL;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES shop_products(id) ON DELETE SET NULL;
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS name VARCHAR(120);
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(40);
+    ALTER TABLE order_items ADD COLUMN IF NOT EXISTS image VARCHAR(255);
+  `);
+};
+
 // Initialize models in correct order (parent tables first)
 const initializeModels = async () => {
   try {
@@ -96,16 +110,17 @@ const initializeModels = async () => {
     await User.sync({ force: false, alter: false });
     await AuditLog.sync({ force: false, alter: false });
     await MenuItem.sync({ force: false, alter: false });
-    await Order.sync({ force: false, alter: false });
-    await OrderItem.sync({ force: false, alter: false });
-    await OrderStatusEvent.sync({ force: false, alter: false });
-    await Notification.sync({ force: false, alter: false });
     await UserAddress.sync({ force: false, alter: false });
     await Shop.sync({ force: false, alter: false });
     await migrateOpeningHours();
     await migrateUserShop();
     await ShopProduct.sync({ force: false, alter: false });
     await migrateProductImages();
+    await Order.sync({ force: false, alter: false });
+    await OrderItem.sync({ force: false, alter: false });
+    await migrateShopOrders();
+    await OrderStatusEvent.sync({ force: false, alter: false });
+    await Notification.sync({ force: false, alter: false });
     await ShopReview.sync({ force: false, alter: false });
     await sequelize.query(`
       ALTER TABLE shops ADD COLUMN IF NOT EXISTS delivery_conditions JSONB NOT NULL DEFAULT '[]'::jsonb;
@@ -201,6 +216,9 @@ const setupAssociations = () => {
     models.Shop.belongsTo(models.User, { as: "owner", foreignKey: "owner_id" });
     models.Shop.hasMany(models.ShopProduct, { as: "products", foreignKey: "shop_id", onDelete: "CASCADE" });
     models.ShopProduct.belongsTo(models.Shop, { as: "shop", foreignKey: "shop_id" });
+    models.Shop.hasMany(models.Order, { as: "orders", foreignKey: "shop_id" });
+    models.Order.belongsTo(models.Shop, { as: "shop", foreignKey: "shop_id" });
+    models.OrderItem.belongsTo(models.ShopProduct, { as: "product", foreignKey: "product_id", constraints: false });
     models.Shop.hasMany(models.User, { as: "members", foreignKey: "shop_id", constraints: false });
     models.User.belongsTo(models.Shop, { as: "workplace", foreignKey: "shop_id", constraints: false });
     models.Shop.hasMany(models.ShopReview, { as: "reviews", foreignKey: "shop_id", onDelete: "CASCADE" });

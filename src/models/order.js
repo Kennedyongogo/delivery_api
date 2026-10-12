@@ -41,6 +41,16 @@ module.exports = (sequelize) => {
           key: "id",
         },
       },
+      // The shop fulfilling the order. Null only on legacy menu orders.
+      shop_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: "shops",
+          key: "id",
+        },
+        onDelete: "SET NULL",
+      },
       status: {
         type: DataTypes.ENUM(
           "pending",
@@ -68,6 +78,11 @@ module.exports = (sequelize) => {
       delivery_address: {
         type: DataTypes.TEXT,
         allowNull: false,
+      },
+      // Street or area name for the map pin, e.g. "Kabi Lane"; delivery_address holds the house or landmark.
+      delivery_place: {
+        type: DataTypes.STRING(200),
+        allowNull: true,
       },
       delivery_latitude: {
         type: DataTypes.DECIMAL(10, 8),

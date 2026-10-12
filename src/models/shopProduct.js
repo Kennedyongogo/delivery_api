@@ -41,7 +41,7 @@ module.exports = (sequelize) => {
         type: DataTypes.STRING(40),
         allowNull: true,
       },
-      // Null means stock isn't tracked for this product.
+      // Reserved for the point-of-sale stock tracking; the API doesn't read or write it yet.
       stock_quantity: {
         type: DataTypes.INTEGER,
         allowNull: true,

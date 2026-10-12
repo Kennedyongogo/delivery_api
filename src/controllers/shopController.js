@@ -281,12 +281,8 @@ const readProductBody = (body) => {
     description: text(body.description),
     unit: text(body.unit),
     price: number(body.price, "Price"),
-    stock_quantity: number(body.stock_quantity, "Stock"),
     is_available: toBool(body.is_available),
   };
-  if (values.stock_quantity !== undefined && values.stock_quantity !== null) {
-    if (!Number.isInteger(values.stock_quantity)) throw new ValidationError("Stock must be a whole number.");
-  }
   for (const key of Object.keys(values)) if (values[key] === undefined) delete values[key];
   return values;
 };
@@ -437,6 +433,7 @@ const deleteProduct = async (req, res) => {
 };
 
 module.exports = {
+  findShopFor,
   getMyShop,
   saveMyShop,
   deleteMyShop,

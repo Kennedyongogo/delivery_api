@@ -6,8 +6,35 @@ const {
   AuditLog,
   OrderStatusEvent,
   Notification,
+  Shop,
 } = require("../models");
 const { ROLES, RIDER_ROLES, ADMIN_ROLES, isRider } = require("../utils/roles");
+const { findShopFor } = require("./shopController");
+
+const ORDER_INCLUDE = [
+  {
+    model: OrderItem,
+    as: "items",
+    include: [{ model: MenuItem, as: "menu_item" }],
+  },
+  { model: Shop, as: "shop", attributes: ["id", "name", "logo_url", "phone", "address", "latitude", "longitude"] },
+];
+
+// Shop owners and staff only see and act on their own shop's orders.
+const shopAllows = async (user, order) => {
+  if (!ADMIN_ROLES.includes(user.role)) return true;
+  if (!order.shop_id) return true;
+  const shop = await findShopFor(user);
+  return Boolean(shop) && shop.id === order.shop_id;
+};
+
+const notifyRiders = async (order, title, message) => {
+  const where = order.shop_id
+    ? { shop_id: order.shop_id, role: ROLES.SHOP_RIDER, is_active: true }
+    : { role: RIDER_ROLES, is_active: true };
+  const riders = order.rider_id ? [{ id: order.rider_id }] : await User.findAll({ where, attributes: ["id"] });
+  return riders.map((rider) => ({ user_id: rider.id, order_id: order.id, title, message, type: "delivery" }));
+};
 
 const createNotificationsForStatusChange = async ({
   order,
@@ -39,23 +66,11 @@ const createNotificationsForStatusChange = async ({
     notifications.push({
       user_id: order.customer_id,
       order_id: order.id,
-      title: "Food Ready",
-      message: `Your order ${orderLabel} is ready for pickup.`,
+      title: "Order Ready",
+      message: `Your order ${orderLabel} is packed and waiting for a rider.`,
       type: "order_update",
     });
-    const riders = await User.findAll({
-      where: { role: RIDER_ROLES, is_active: true },
-      attributes: ["id"],
-    });
-    for (const rider of riders) {
-      notifications.push({
-        user_id: rider.id,
-        order_id: order.id,
-        title: "New Delivery Available",
-        message: `Order ${orderLabel} is ready for pickup.`,
-        type: "delivery",
-      });
-    }
+    notifications.push(...(await notifyRiders(order, "New Delivery Available", `Order ${orderLabel} is ready for pickup.`)));
   }
   if (newStatus === "picked_up") {
     notifications.push({
@@ -108,21 +123,29 @@ const getOrders = async (req, res) => {
     if (status) whereClause.status = status;
     if (req.user.role === ROLES.CUSTOMER) whereClause.customer_id = req.user.id;
     if (isRider(req.user.role)) whereClause.rider_id = req.user.id;
+    if (ADMIN_ROLES.includes(req.user.role)) {
+      const shop = await findShopFor(req.user);
+      if (!shop) {
+        return res.status(200).json({
+          success: true,
+          data: [],
+          pagination: { total: 0, page: pageNum, limit: limitNum, totalPages: 0 },
+        });
+      }
+      whereClause.shop_id = shop.id;
+    }
 
     const { count, rows } = await Order.findAndCountAll({
       where: whereClause,
       include: [
-        {
-          model: OrderItem,
-          as: "items",
-          include: [{ model: MenuItem, as: "menu_item" }],
-        },
+        ...ORDER_INCLUDE,
         { model: User, as: "customer", attributes: ["id", "full_name", "phone"] },
         { model: User, as: "rider", attributes: ["id", "full_name", "phone"] },
       ],
       order: [["createdAt", "DESC"]],
       limit: limitNum,
       offset,
+      distinct: true,
     });
 
     return res.status(200).json({
@@ -144,11 +167,7 @@ const getOrderById = async (req, res) => {
   try {
     const order = await Order.findByPk(req.params.id, {
       include: [
-        {
-          model: OrderItem,
-          as: "items",
-          include: [{ model: MenuItem, as: "menu_item" }],
-        },
+        ...ORDER_INCLUDE,
         {
           model: User,
           as: "customer",
@@ -158,7 +177,7 @@ const getOrderById = async (req, res) => {
       ],
     });
 
-    if (!order) {
+    if (!order || !(await shopAllows(req.user, order))) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
     if (req.user.role === ROLES.CUSTOMER && order.customer_id !== req.user.id) {
@@ -293,7 +312,7 @@ const updateOrderStatus = async (req, res) => {
   try {
     const { status, cancel_reason } = req.body;
     const order = await Order.findByPk(req.params.id);
-    if (!order) {
+    if (!order || !(await shopAllows(req.user, order))) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
     if (!status) {
@@ -325,7 +344,9 @@ const updateOrderStatus = async (req, res) => {
       }
     }
 
-    if (["picked_up", "delivered"].includes(status)) {
+    // Until riders have their own app, the shop desk can mark its own deliveries on the way and delivered.
+    const shopDesk = Boolean(order.shop_id) && ADMIN_ROLES.includes(req.user.role);
+    if (["picked_up", "delivered"].includes(status) && !shopDesk) {
       if (!isRider(req.user.role)) {
         return res.status(403).json({
           success: false,
@@ -353,7 +374,8 @@ const updateOrderStatus = async (req, res) => {
           message: "Customers can only cancel their own orders",
         });
       }
-      if (!["pending", "confirmed", "preparing"].includes(order.status)) {
+      const cancellable = order.shop_id ? ["pending", "confirmed"] : ["pending", "confirmed", "preparing"];
+      if (!cancellable.includes(order.status)) {
         return res.status(400).json({
           success: false,
           message: "Order can no longer be cancelled",
@@ -413,7 +435,7 @@ const updateOrderStatus = async (req, res) => {
 const getOrderTimeline = async (req, res) => {
   try {
     const order = await Order.findByPk(req.params.id);
-    if (!order) {
+    if (!order || !(await shopAllows(req.user, order))) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
     if (req.user.role === ROLES.CUSTOMER && order.customer_id !== req.user.id) {
@@ -443,13 +465,19 @@ const assignRider = async (req, res) => {
   try {
     const { rider_id } = req.body;
     const order = await Order.findByPk(req.params.id);
-    if (!order) {
+    if (!order || !(await shopAllows(req.user, order))) {
       return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    if (["delivered", "cancelled"].includes(order.status)) {
+      return res.status(400).json({ success: false, message: `This order is already ${order.status}.` });
     }
 
     const rider = await User.findByPk(rider_id);
-    if (!rider || !isRider(rider.role)) {
+    if (!rider || !rider.is_active || !isRider(rider.role)) {
       return res.status(400).json({ success: false, message: "Invalid rider" });
+    }
+    if (order.shop_id && (rider.role !== ROLES.SHOP_RIDER || rider.shop_id !== order.shop_id)) {
+      return res.status(400).json({ success: false, message: "Pick one of your shop's riders." });
     }
 
     await order.update({ rider_id });
@@ -459,6 +487,30 @@ const assignRider = async (req, res) => {
       details: { order_id: order.id, rider_id },
       ip_address: req.ip,
     });
+    await OrderStatusEvent.create({
+      order_id: order.id,
+      changed_by: req.user.id,
+      old_status: order.status,
+      new_status: order.status,
+      note: `Rider assigned: ${rider.full_name}`,
+    });
+    const label = order.order_number || order.id;
+    await Notification.bulkCreate([
+      {
+        user_id: order.customer_id,
+        order_id: order.id,
+        title: "Rider Assigned",
+        message: `${rider.full_name} will deliver your order ${label}.`,
+        type: "delivery",
+      },
+      {
+        user_id: rider.id,
+        order_id: order.id,
+        title: "New Delivery",
+        message: `You have been assigned order ${label}.`,
+        type: "delivery",
+      },
+    ]);
 
     return res.status(200).json({
       success: true,
@@ -472,17 +524,13 @@ const assignRider = async (req, res) => {
 
 const getAvailableOrders = async (req, res) => {
   try {
+    // Shop riders only pick up their own shop's orders.
+    const where = { status: "ready_for_pickup", rider_id: null };
+    if (req.user.role === ROLES.SHOP_RIDER) where.shop_id = req.user.shop_id ?? null;
     const orders = await Order.findAll({
-      where: {
-        status: "ready_for_pickup",
-        rider_id: null,
-      },
+      where,
       include: [
-        {
-          model: OrderItem,
-          as: "items",
-          include: [{ model: MenuItem, as: "menu_item" }],
-        },
+        ...ORDER_INCLUDE,
         { model: User, as: "customer", attributes: ["id", "full_name", "phone"] },
       ],
       order: [["createdAt", "ASC"]],
@@ -556,7 +604,7 @@ const getOrderLiveLocation = async (req, res) => {
         { model: User, as: "rider", attributes: ["id", "full_name", "phone"] },
       ],
     });
-    if (!order) {
+    if (!order || !(await shopAllows(req.user, order))) {
       return res.status(404).json({ success: false, message: "Order not found" });
     }
 

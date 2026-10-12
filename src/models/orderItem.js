@@ -17,13 +17,36 @@ module.exports = (sequelize) => {
           key: "id",
         },
       },
+      // Legacy menu orders point at a menu item; shop orders point at a shop product instead.
       menu_item_id: {
         type: DataTypes.UUID,
-        allowNull: false,
+        allowNull: true,
         references: {
           model: "menu_items",
           key: "id",
         },
+      },
+      product_id: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: {
+          model: "shop_products",
+          key: "id",
+        },
+        onDelete: "SET NULL",
+      },
+      // Snapshot of the product when ordered, so the order reads the same after the shop edits or deletes it.
+      name: {
+        type: DataTypes.STRING(120),
+        allowNull: true,
+      },
+      unit: {
+        type: DataTypes.STRING(40),
+        allowNull: true,
+      },
+      image: {
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       quantity: {
         type: DataTypes.INTEGER,
