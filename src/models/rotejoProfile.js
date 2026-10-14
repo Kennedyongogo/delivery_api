@@ -35,6 +35,11 @@ module.exports = (sequelize) => {
         defaultValue: "pending",
       },
       review_note: { type: DataTypes.TEXT, allowNull: true },
+      // Presence: an online rider whose phone checked in recently can be offered rides.
+      online: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+      lat: { type: DataTypes.DOUBLE, allowNull: true },
+      lng: { type: DataTypes.DOUBLE, allowNull: true },
+      last_seen: { type: DataTypes.DATE, allowNull: true },
       reviewed_by: { type: DataTypes.UUID, allowNull: true },
       reviewed_at: { type: DataTypes.DATE, allowNull: true },
     },

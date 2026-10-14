@@ -13,6 +13,7 @@ const Shop = require("./shop")(sequelize);
 const ShopProduct = require("./shopProduct")(sequelize);
 const ShopReview = require("./shopReview")(sequelize);
 const RotejoProfile = require("./rotejoProfile")(sequelize);
+const RotejoRide = require("./rotejoRide")(sequelize);
 
 const models = {
   User,
@@ -27,6 +28,7 @@ const models = {
   ShopProduct,
   ShopReview,
   RotejoProfile,
+  RotejoRide,
 };
 
 // sync({ alter: false }) never changes an existing Postgres enum type, so values added to a
@@ -125,6 +127,13 @@ const initializeModels = async () => {
     await Notification.sync({ force: false, alter: false });
     await ShopReview.sync({ force: false, alter: false });
     await RotejoProfile.sync({ force: false, alter: false });
+    await sequelize.query(`
+      ALTER TABLE rotejo_profiles ADD COLUMN IF NOT EXISTS online BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE rotejo_profiles ADD COLUMN IF NOT EXISTS lat DOUBLE PRECISION;
+      ALTER TABLE rotejo_profiles ADD COLUMN IF NOT EXISTS lng DOUBLE PRECISION;
+      ALTER TABLE rotejo_profiles ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ;
+    `);
+    await RotejoRide.sync({ force: false, alter: false });
     await sequelize.query(`
       ALTER TABLE shops ADD COLUMN IF NOT EXISTS delivery_conditions JSONB NOT NULL DEFAULT '[]'::jsonb;
       ALTER TABLE shop_reviews ADD COLUMN IF NOT EXISTS owner_reply TEXT;
@@ -229,6 +238,8 @@ const setupAssociations = () => {
     models.ShopReview.belongsTo(models.User, { as: "author", foreignKey: "user_id" });
     models.User.hasOne(models.RotejoProfile, { as: "rotejo_profile", foreignKey: "user_id", onDelete: "CASCADE" });
     models.RotejoProfile.belongsTo(models.User, { as: "rider", foreignKey: "user_id" });
+    models.RotejoRide.belongsTo(models.User, { as: "customer", foreignKey: "customer_id" });
+    models.RotejoRide.belongsTo(models.User, { as: "rider", foreignKey: "rider_id" });
 
     console.log("✅ All associations set up successfully");
   } catch (error) {
