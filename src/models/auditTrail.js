@@ -43,7 +43,10 @@ module.exports = (sequelize) => {
           "update_shop_product",
           "delete_shop_product",
           "reply_shop_review",
-          "delete_shop_review_reply"
+          "delete_shop_review_reply",
+          "rotejo_apply",
+          "rotejo_approved",
+          "rotejo_rejected"
         ),
         allowNull: false,
       },
