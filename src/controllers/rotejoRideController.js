@@ -479,7 +479,7 @@ const myJob = async (req, res, statuses) => {
     return null;
   }
   if (!statuses.includes(ride.status)) {
-    fail(res, 409, ride.status === "cancelled" ? "The passenger cancelled this ride." : "This step is already done.");
+    fail(res, 409, ride.status === "cancelled" ? "The passenger cancelled this ride." : "That step doesn't fit where the ride is now.");
     return null;
   }
   return ride;
