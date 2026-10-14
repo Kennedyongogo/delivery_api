@@ -16,6 +16,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const addressRoutes = require("./routes/addressRoutes");
 const shopRoutes = require("./routes/shopRoutes");
 const publicRoutes = require("./routes/publicRoutes");
+const rotejoRoutes = require("./routes/rotejoRoutes");
 
 const app = express();
 
@@ -119,6 +120,8 @@ app.use("/api/shops", shopRoutes);
 console.log("✅ /api/shops route registered");
 app.use("/api/public", publicRoutes);
 console.log("✅ /api/public route registered");
+app.use("/api/rotejo", rotejoRoutes);
+console.log("✅ /api/rotejo route registered");
 
 // Forgot password endpoint
 app.post("/api/auth/forgot", async (req, res) => {

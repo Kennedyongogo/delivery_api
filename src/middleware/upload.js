@@ -3,6 +3,9 @@ const path = require("path");
 const fs = require("fs");
 const { MAX_PRODUCT_IMAGES } = require("../utils/shopCategories");
 
+// Photos a Rotejo rider uploads when applying.
+const ROTEJO_DOCUMENTS = ["selfie", "id_front", "id_back", "licence", "bike"];
+
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -74,6 +77,9 @@ const storage = multer.diskStorage({
       uploadPath = path.join(__dirname, "..", "..", "uploads", "shops");
     } else if (file.fieldname === "product_images") {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "products");
+    } else if (ROTEJO_DOCUMENTS.includes(file.fieldname)) {
+      // Rider IDs and licences are private: this folder is not served by express.static.
+      uploadPath = path.join(__dirname, "..", "..", "uploads", "rotejo");
     } else {
       uploadPath = path.join(__dirname, "..", "..", "uploads", "misc");
     }
@@ -139,7 +145,10 @@ const fileFilter = (req, file, cb) => {
   const isMenuImageField =
     file.fieldname === "image" || file.fieldname === "menu_image";
   const isProfileImageField = file.fieldname === "profile_image";
-  const isShopImageField = file.fieldname === "shop_logo" || file.fieldname === "product_images";
+  const isShopImageField =
+    file.fieldname === "shop_logo" ||
+    file.fieldname === "product_images" ||
+    ROTEJO_DOCUMENTS.includes(file.fieldname);
 
   if (isShopImageField && !file.mimetype.startsWith("image/") && file.mimetype !== "application/octet-stream") {
     cb(new Error(`Invalid file type: ${file.mimetype}`), false);
@@ -244,6 +253,7 @@ const uploadMenuImage = upload.single("image");
 const imageUpload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 const uploadShopLogo = imageUpload.single("shop_logo");
 const uploadProductImages = imageUpload.array("product_images", MAX_PRODUCT_IMAGES);
+const uploadRotejoDocuments = imageUpload.fields(ROTEJO_DOCUMENTS.map((name) => ({ name, maxCount: 1 })));
 
 // Error handling middleware for multer
 const handleUploadError = (error, req, res, next) => {
@@ -349,6 +359,8 @@ module.exports = {
   uploadMenuImage,
   uploadShopLogo,
   uploadProductImages,
+  uploadRotejoDocuments,
+  ROTEJO_DOCUMENTS,
   handleUploadError,
   deleteFile,
   getFileType,

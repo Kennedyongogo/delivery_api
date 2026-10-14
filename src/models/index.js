@@ -12,6 +12,7 @@ const UserAddress = require("./userAddress")(sequelize);
 const Shop = require("./shop")(sequelize);
 const ShopProduct = require("./shopProduct")(sequelize);
 const ShopReview = require("./shopReview")(sequelize);
+const RotejoProfile = require("./rotejoProfile")(sequelize);
 
 const models = {
   User,
@@ -25,6 +26,7 @@ const models = {
   Shop,
   ShopProduct,
   ShopReview,
+  RotejoProfile,
 };
 
 // sync({ alter: false }) never changes an existing Postgres enum type, so values added to a
@@ -122,6 +124,7 @@ const initializeModels = async () => {
     await OrderStatusEvent.sync({ force: false, alter: false });
     await Notification.sync({ force: false, alter: false });
     await ShopReview.sync({ force: false, alter: false });
+    await RotejoProfile.sync({ force: false, alter: false });
     await sequelize.query(`
       ALTER TABLE shops ADD COLUMN IF NOT EXISTS delivery_conditions JSONB NOT NULL DEFAULT '[]'::jsonb;
       ALTER TABLE shop_reviews ADD COLUMN IF NOT EXISTS owner_reply TEXT;
@@ -224,6 +227,8 @@ const setupAssociations = () => {
     models.Shop.hasMany(models.ShopReview, { as: "reviews", foreignKey: "shop_id", onDelete: "CASCADE" });
     models.ShopReview.belongsTo(models.Shop, { as: "shop", foreignKey: "shop_id" });
     models.ShopReview.belongsTo(models.User, { as: "author", foreignKey: "user_id" });
+    models.User.hasOne(models.RotejoProfile, { as: "rotejo_profile", foreignKey: "user_id", onDelete: "CASCADE" });
+    models.RotejoProfile.belongsTo(models.User, { as: "rider", foreignKey: "user_id" });
 
     console.log("✅ All associations set up successfully");
   } catch (error) {
